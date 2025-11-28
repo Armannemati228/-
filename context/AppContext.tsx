@@ -1,6 +1,7 @@
 
-import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
-import { User, Dog, Service, Invoice, Expense, FinancialSummary, InvoiceStatus, UserRole, WalletTransaction, TransactionType, PaymentGatewaySettings, PaymentMethod, Room, DailyLog, DogStatus, TrainingSession, ServiceRequest, Ticket, AIConfig, AssignedTrainer, UserPermissions, ManagerTask, DailyChecklist, EmergencyReport, InventoryItem, InventoryTransaction, SystemLog, TreatmentPlan, PurchaseRequest, PrescriptionItem, JournalEntry, Account, JournalEntryLine, Check, Payslip, Reminder, SMSConfig, HostConfig } from '../types';
+import * as React from 'react';
+import { createContext, useContext, useState, useEffect, useMemo } from 'react';
+import { User, Dog, Service, Invoice, Expense, FinancialSummary, InvoiceStatus, UserRole, WalletTransaction, TransactionType, PaymentGatewaySettings, PaymentMethod, Room, DailyLog, DogStatus, TrainingSession, ServiceRequest, Ticket, AIConfig, AssignedTrainer, UserPermissions, ManagerTask, DailyChecklist, EmergencyReport, InventoryItem, InventoryTransaction, SystemLog, TreatmentPlan, PurchaseRequest, PrescriptionItem, JournalEntry, Account, JournalEntryLine, Check, Payslip, Reminder, SMSConfig, HostConfig, SystemBackup } from '../types';
 import { MOCK_USERS, MOCK_DOGS, MOCK_SERVICES, MOCK_INVOICES, MOCK_EXPENSES, MOCK_ROOMS, MOCK_INVENTORY, DEFAULT_ACCOUNTS, MOCK_CHECKS } from '../constants';
 
 interface AppContextType {
@@ -128,6 +129,9 @@ interface AppContextType {
   deleteJournalEntry: (id: string) => void;
 
   addSystemLog: (category: SystemLog['category'], action: string, description: string) => void;
+  
+  createBackup: () => void;
+  restoreBackup: (file: File) => Promise<void>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -147,12 +151,36 @@ const getDefaultPermissions = (roles: UserRole[]): UserPermissions => {
   return perms;
 };
 
+// STORAGE KEYS
+const STORAGE_KEYS = {
+  USERS: 'mr_rottweiler_users',
+  DOGS: 'mr_rottweiler_dogs',
+  INVOICES: 'mr_rottweiler_invoices',
+  EXPENSES: 'mr_rottweiler_expenses',
+  LOGS: 'mr_rottweiler_logs',
+  CHECKLISTS: 'mr_rottweiler_checklists',
+  JOURNAL: 'mr_rottweiler_journal',
+  INVENTORY: 'mr_rottweiler_inventory'
+};
+
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [users, setUsers] = useState<User[]>(MOCK_USERS);
-  const [dogs, setDogs] = useState<Dog[]>(MOCK_DOGS);
+  // Load initial state from LocalStorage or fallback to Mocks
+  const loadState = <T,>(key: string, fallback: T): T => {
+    const stored = localStorage.getItem(key);
+    return stored ? JSON.parse(stored) : fallback;
+  };
+
+  const [users, setUsers] = useState<User[]>(() => loadState(STORAGE_KEYS.USERS, MOCK_USERS));
+  const [dogs, setDogs] = useState<Dog[]>(() => loadState(STORAGE_KEYS.DOGS, MOCK_DOGS));
+  const [invoices, setInvoices] = useState<Invoice[]>(() => loadState(STORAGE_KEYS.INVOICES, MOCK_INVOICES));
+  const [expenses, setExpenses] = useState<Expense[]>(() => loadState(STORAGE_KEYS.EXPENSES, MOCK_EXPENSES));
+  const [dailyChecklists, setDailyChecklists] = useState<DailyChecklist[]>(() => loadState(STORAGE_KEYS.CHECKLISTS, []));
+  const [systemLogs, setSystemLogs] = useState<SystemLog[]>(() => loadState(STORAGE_KEYS.LOGS, []));
+  const [inventory, setInventory] = useState<InventoryItem[]>(() => loadState(STORAGE_KEYS.INVENTORY, MOCK_INVENTORY));
+  const [journalEntries, setJournalEntries] = useState<JournalEntry[]>(() => loadState(STORAGE_KEYS.JOURNAL, []));
+
+  // Other states (less critical for persistence or dynamic)
   const [services, setServices] = useState<Service[]>(MOCK_SERVICES);
-  const [invoices, setInvoices] = useState<Invoice[]>(MOCK_INVOICES);
-  const [expenses, setExpenses] = useState<Expense[]>(MOCK_EXPENSES);
   const [transactions, setTransactions] = useState<WalletTransaction[]>([]);
   const [rooms, setRooms] = useState<Room[]>(MOCK_ROOMS);
   const [darkMode, setDarkMode] = useState(false);
@@ -161,12 +189,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [reminders, setReminders] = useState<Reminder[]>([]);
   
   const [managerTasks, setManagerTasks] = useState<ManagerTask[]>([ { id: 'mt1', title: 'بررسی نظافت اتاق‌ها', category: 'Sanitation', isEnabled: true }, { id: 'mt2', title: 'چک کردن موجودی غذای خشک', category: 'Logistics', isEnabled: true }, ]);
-  const [dailyChecklists, setDailyChecklists] = useState<DailyChecklist[]>([]);
   const [emergencyReports, setEmergencyReports] = useState<EmergencyReport[]>([]);
-  const [systemLogs, setSystemLogs] = useState<SystemLog[]>([]);
   const [feedingResponsibleRole, setFeedingResponsibleRoleState] = useState<UserRole>(UserRole.STAFF);
 
-  const [inventory, setInventory] = useState<InventoryItem[]>(MOCK_INVENTORY);
   const [inventoryTransactions, setInventoryTransactions] = useState<InventoryTransaction[]>([]);
   const [productionTolerance, setProductionTolerance] = useState(5); 
 
@@ -174,7 +199,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [purchaseRequests, setPurchaseRequests] = useState<PurchaseRequest[]>([]);
 
   const [accounts, setAccounts] = useState<Account[]>(DEFAULT_ACCOUNTS);
-  const [journalEntries, setJournalEntries] = useState<JournalEntry[]>([]);
   const [checks, setChecks] = useState<Check[]>(MOCK_CHECKS);
   const [payslips, setPayslips] = useState<Payslip[]>([]);
 
@@ -182,6 +206,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [smsConfig, setSmsConfig] = useState<SMSConfig>({ isEnabled: false, provider: 'KavehNegar', apiKey: '', senderLine: '', patternCode: '' }); 
   const [hostConfig, setHostConfig] = useState<HostConfig>({ domain: '', host: '', port: '21', username: '', password: '', protocol: 'FTP' });
   const [aiConfig, setAiConfig] = useState<AIConfig>({ apiKey: '', model: 'gemini-1.5-flash', isEnabled: false });
+
+  // Persistence Effects
+  useEffect(() => localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(users)), [users]);
+  useEffect(() => localStorage.setItem(STORAGE_KEYS.DOGS, JSON.stringify(dogs)), [dogs]);
+  useEffect(() => localStorage.setItem(STORAGE_KEYS.INVOICES, JSON.stringify(invoices)), [invoices]);
+  useEffect(() => localStorage.setItem(STORAGE_KEYS.EXPENSES, JSON.stringify(expenses)), [expenses]);
+  useEffect(() => localStorage.setItem(STORAGE_KEYS.CHECKLISTS, JSON.stringify(dailyChecklists)), [dailyChecklists]);
+  useEffect(() => localStorage.setItem(STORAGE_KEYS.LOGS, JSON.stringify(systemLogs)), [systemLogs]);
+  useEffect(() => localStorage.setItem(STORAGE_KEYS.INVENTORY, JSON.stringify(inventory)), [inventory]);
+  useEffect(() => localStorage.setItem(STORAGE_KEYS.JOURNAL, JSON.stringify(journalEntries)), [journalEntries]);
 
   useEffect(() => { if (darkMode) { document.documentElement.classList.add('dark'); } else { document.documentElement.classList.remove('dark'); } }, [darkMode]);
   const toggleDarkMode = () => setDarkMode(!darkMode);
@@ -300,7 +334,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const addManagerTask = (task: ManagerTask) => setManagerTasks(prev => [...prev, task]);
   const removeManagerTask = (taskId: string) => setManagerTasks(prev => prev.filter(t => t.id !== taskId));
   const submitChecklist = (checklist: DailyChecklist) => setDailyChecklists(prev => [checklist, ...prev]);
-  const verifyChecklist = (checklistId: string) => setDailyChecklists(prev => prev.map(c => c.id === checklistId ? { ...c, verifiedByAdmin: true } : c));
+  const verifyChecklist = (checklistId: string) => {
+      setDailyChecklists(prev => prev.map(c => c.id === checklistId ? { ...c, verifiedByAdmin: true } : c));
+      addSystemLog('Operation', 'CHECKLIST_VERIFY', `تایید و بایگانی گزارش روزانه شناسه ${checklistId}`);
+  };
   const addEmergencyReport = (report: EmergencyReport) => { setEmergencyReports(prev => [report, ...prev]); addSystemLog('Emergency', 'REPORT', `گزارش اضطراری: ${report.title}`); };
   const assignEmergencyReport = (reportId: string, userId: string, userName: string, adminNote: string) => { setEmergencyReports(prev => prev.map(r => r.id === reportId ? { ...r, status: 'ASSIGNED', assignedToId: userId, assignedToName: userName, adminNote } : r)); };
   const resolveEmergencyReport = (reportId: string) => { setEmergencyReports(prev => prev.map(r => r.id === reportId ? { ...r, status: 'RESOLVED', resolvedAt: new Date().toLocaleString('fa-IR') } : r)); };
@@ -318,59 +355,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           if (i.id === itemId) {
               const newQty = type === 'IN' ? i.quantity + quantity : i.quantity - quantity;
               let newAvgCost = i.averageCost;
-              
-              // Weighted Average Cost (WAC) Logic:
-              // New Avg = ((Old Qty * Old Cost) + (New Qty * Purchase Price)) / Total Qty
               if (type === 'IN' && unitPrice && unitPrice > 0) {
                   const currentTotalValue = i.quantity * i.averageCost;
                   const incomingTotalValue = quantity * unitPrice;
-                  if (newQty > 0) {
-                      newAvgCost = (currentTotalValue + incomingTotalValue) / newQty;
-                  }
+                  if (newQty > 0) { newAvgCost = (currentTotalValue + incomingTotalValue) / newQty; }
               }
               return { ...i, quantity: Math.max(0, newQty), averageCost: newAvgCost };
           }
           return i;
       }));
-
       const item = inventory.find(i => i.id === itemId);
-      // Ensure we use the explicit unitPrice if provided (for Purchase log), otherwise AvgCost
       const transactionPrice = unitPrice ? unitPrice : (item ? item.averageCost : 0);
       const totalTransactionValue = quantity * transactionPrice;
-
-      const txn: InventoryTransaction = { 
-          id: `inv_txn_${Date.now()}_${Math.random()}`, 
-          itemId, 
-          itemName: item?.name || '', 
-          type, 
-          quantity, 
-          unitPrice: transactionPrice, 
-          totalPrice: totalTransactionValue, 
-          date: new Date().toLocaleString('fa-IR'), 
-          userId: currentUser?.id || 'sys', 
-          userName: currentUser?.name || 'System', 
-          description, 
-          relatedDogId: dogId 
-      };
-      
+      const txn: InventoryTransaction = { id: `inv_txn_${Date.now()}_${Math.random()}`, itemId, itemName: item?.name || '', type, quantity, unitPrice: transactionPrice, totalPrice: totalTransactionValue, date: new Date().toLocaleString('fa-IR'), userId: currentUser?.id || 'sys', userName: currentUser?.name || 'System', description, relatedDogId: dogId };
       setInventoryTransactions(prev => [txn, ...prev]);
-
-      // Journal Entry for Purchase (IN)
       if (type === 'IN' && unitPrice && totalTransactionValue > 0) {
-          let debitAcc = '1043'; // Default Equipment
-          if (item?.category === 'Food') debitAcc = '1041';
-          else if (item?.category === 'Medical') debitAcc = '1042';
-          
-          recordJournalEntry({ 
-              date: new Date().toLocaleDateString('fa-IR'), 
-              description: `خرید کالا: ${item?.name} (${quantity} ${item?.unit}) - فی: ${new Intl.NumberFormat('fa-IR').format(unitPrice)}`, 
-              reference: `PUR-${Date.now()}`, 
-              status: 'POSTED', 
-              lines: [ 
-                  { accountId: debitAcc, accountName: 'موجودی کالا', debit: totalTransactionValue, credit: 0 }, 
-                  { accountId: '1011', accountName: 'صندوق مرکزی', debit: 0, credit: totalTransactionValue } 
-              ] 
-          });
+          let debitAcc = '1043'; if (item?.category === 'Food') debitAcc = '1041'; else if (item?.category === 'Medical') debitAcc = '1042';
+          recordJournalEntry({ date: new Date().toLocaleDateString('fa-IR'), description: `خرید کالا: ${item?.name} (${quantity} ${item?.unit}) - فی: ${new Intl.NumberFormat('fa-IR').format(unitPrice)}`, reference: `PUR-${Date.now()}`, status: 'POSTED', lines: [ { accountId: debitAcc, accountName: 'موجودی کالا', debit: totalTransactionValue, credit: 0 }, { accountId: '1011', accountName: 'صندوق مرکزی', debit: 0, credit: totalTransactionValue } ] });
       }
   };
 
@@ -383,31 +384,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               if (item) {
                   let consumedQty = entry.quantityUsed;
                   if (item.category === 'Food' && entry.weight && item.unit === 'کیلوگرم') { consumedQty = entry.weight / 1000; }
-                  
-                  // Cost of Goods Sold Logic (OUT)
-                  // Uses current Weighted Average Cost
                   const cost = consumedQty * item.averageCost;
-                  
                   if (cost > 0) {
                       let expenseAcc = '6060'; let creditAcc = '1043';
                       if (item.category === 'Food') { expenseAcc = '6030'; creditAcc = '1041'; }
                       else if (item.category === 'Medical') { expenseAcc = '6031'; creditAcc = '1042'; }
-                      
-                      // Deduct from stock
                       updateStock(item.id, consumedQty, 'OUT', `مصرف روزانه برای ${dogId}`, dogId); 
-                      
-                      // Record Expense (Cost of Sales)
-                      recordJournalEntry({ 
-                          date: log.date, 
-                          description: `هزینه مصرفی: ${item.name} برای سگ ${dogs.find(d=>d.id===dogId)?.name}`, 
-                          relatedEntityId: dogId, 
-                          relatedEntityName: dogs.find(d=>d.id===dogId)?.name, 
-                          status: 'POSTED', 
-                          lines: [ 
-                              { accountId: expenseAcc, accountName: 'هزینه عملیاتی (COGS)', debit: cost, credit: 0 }, 
-                              { accountId: creditAcc, accountName: 'موجودی انبار', debit: 0, credit: cost } 
-                          ] 
-                      });
+                      recordJournalEntry({ date: log.date, description: `هزینه مصرفی: ${item.name} برای سگ ${dogs.find(d=>d.id===dogId)?.name}`, relatedEntityId: dogId, relatedEntityName: dogs.find(d=>d.id===dogId)?.name, status: 'POSTED', lines: [ { accountId: expenseAcc, accountName: 'هزینه عملیاتی (COGS)', debit: cost, credit: 0 }, { accountId: creditAcc, accountName: 'موجودی انبار', debit: 0, credit: cost } ] });
                   }
               }
           }
@@ -415,22 +398,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const produceFoodBatch = (ingredients: { itemId: string; quantity: number }[], totalWeight: number) => { 
-      let totalCost = 0;
-      ingredients.forEach(ing => { 
-          const item = inventory.find(i => i.id === ing.itemId); 
-          if (item) { 
-              const cost = ing.quantity * item.averageCost; 
-              totalCost += cost; 
-              updateStock(ing.itemId, ing.quantity, 'OUT', 'تولید غذا'); 
-          } 
-      }); 
+      let totalCost = 0; ingredients.forEach(ing => { const item = inventory.find(i => i.id === ing.itemId); if (item) { const cost = ing.quantity * item.averageCost; totalCost += cost; updateStock(ing.itemId, ing.quantity, 'OUT', 'تولید غذا'); } }); 
       const cooked = inventory.find(i => i.name === 'غذای پخته روزانه');
       const unitCost = totalWeight > 0 ? totalCost / totalWeight : 0;
-      
-      if (cooked) {
-          // Add cooked food back to inventory with calculated Unit Cost
-          updateStock(cooked.id, totalWeight, 'IN', 'تولید غذا', undefined, unitCost); 
-      }
+      if (cooked) { updateStock(cooked.id, totalWeight, 'IN', 'تولید غذا', undefined, unitCost); }
       addSystemLog('Operation', 'FOOD_PRODUCTION', `تولید ${totalWeight.toFixed(2)}kg غذا با هزینه مواد اولیه ${new Intl.NumberFormat('fa-IR').format(totalCost)}`);
   };
 
@@ -441,22 +412,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (plan && med && med.inventoryItemId) {
           const item = inventory.find(i => i.id === med.inventoryItemId);
           if (item) {
-              // Cost calculation based on WAC
               const cost = med.dosageQuantity * item.averageCost;
-              
               updateStock(item.id, med.dosageQuantity, 'OUT', `مصرف دارو برای ${plan.dogId}`, plan.dogId);
-              
-              recordJournalEntry({ 
-                  date: new Date().toLocaleDateString('fa-IR'), 
-                  description: `هزینه درمان: ${med.name} برای ${dogs.find(d=>d.id===plan.dogId)?.name}`, 
-                  relatedEntityId: plan.dogId, 
-                  relatedEntityName: dogs.find(d=>d.id===plan.dogId)?.name, 
-                  status: 'POSTED', 
-                  lines: [ 
-                      { accountId: '6031', accountName: 'هزینه دارو و درمان', debit: cost, credit: 0 }, 
-                      { accountId: '1042', accountName: 'انبار دارو', debit: 0, credit: cost } 
-                  ] 
-              });
+              recordJournalEntry({ date: new Date().toLocaleDateString('fa-IR'), description: `هزینه درمان: ${med.name} برای ${dogs.find(d=>d.id===plan.dogId)?.name}`, relatedEntityId: plan.dogId, relatedEntityName: dogs.find(d=>d.id===plan.dogId)?.name, status: 'POSTED', lines: [ { accountId: '6031', accountName: 'هزینه دارو و درمان', debit: cost, credit: 0 }, { accountId: '1042', accountName: 'انبار دارو', debit: 0, credit: cost } ] });
           }
       }
   };
@@ -481,6 +439,26 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return tasks;
   };
 
+  const createBackup = () => {
+    const backup: SystemBackup = {
+      metadata: { timestamp: new Date().toISOString(), version: '1.0.0', exportedBy: currentUser?.name || 'System' },
+      data: { users, dogs, services, invoices, expenses, transactions, rooms, tickets, reminders, managerTasks, dailyChecklists, emergencyReports, systemLogs, inventory, inventoryTransactions, activeTreatments, purchaseRequests, accounts, journalEntries, checks, payslips, settings: { gateway: gatewaySettings, sms: smsConfig, host: hostConfig, ai: aiConfig, productionTolerance } }
+    };
+    const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = `backup_mr_rottweiler_${new Date().toISOString().split('T')[0]}.json`; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
+    addSystemLog('System', 'BACKUP_CREATE', 'ایجاد نسخه پشتیبان از کل سیستم');
+  };
+
+  const restoreBackup = async (file: File) => {
+    try {
+      const text = await file.text(); const backup: SystemBackup = JSON.parse(text); if (!backup.data) throw new Error('Invalid backup format');
+      setUsers(backup.data.users || []); setDogs(backup.data.dogs || []); setServices(backup.data.services || []); setInvoices(backup.data.invoices || []); setExpenses(backup.data.expenses || []); setTransactions(backup.data.transactions || []); setRooms(backup.data.rooms || []); setTickets(backup.data.tickets || []); setReminders(backup.data.reminders || []); setManagerTasks(backup.data.managerTasks || []); setDailyChecklists(backup.data.dailyChecklists || []); setEmergencyReports(backup.data.emergencyReports || []); setSystemLogs(backup.data.systemLogs || []); setInventory(backup.data.inventory || []); setInventoryTransactions(backup.data.inventoryTransactions || []); setActiveTreatments(backup.data.activeTreatments || []); setPurchaseRequests(backup.data.purchaseRequests || []); setAccounts(backup.data.accounts || []); setJournalEntries(backup.data.journalEntries || []); setChecks(backup.data.checks || []); setPayslips(backup.data.payslips || []);
+      if (backup.data.settings) { setGatewaySettings(backup.data.settings.gateway); setSmsConfig(backup.data.settings.sms); setHostConfig(backup.data.settings.host); setAiConfig(backup.data.settings.ai); setProductionTolerance(backup.data.settings.productionTolerance); }
+      addSystemLog('System', 'BACKUP_RESTORE', `بازگردانی نسخه پشتیبان از تاریخ ${backup.metadata.timestamp}`); alert('اطلاعات با موفقیت بازگردانی شد. صفحه رفرش می‌شود.'); window.location.reload();
+    } catch (error) { console.error(error); alert('خطا در بازگردانی فایل. لطفا از معتبر بودن فایل اطمینان حاصل کنید.'); }
+  };
+
   return (
     <AppContext.Provider value={{
       users, dogs, services, invoices, expenses, transactions, rooms, financials, darkMode, currentUser,
@@ -503,7 +481,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       addEmergencyReport, assignEmergencyReport, resolveEmergencyReport, setFeedingResponsibleRole,
       addInventoryItem, updateInventoryItem, updateStock, produceFoodBatch, setProductionTolerance, checkMissedMeals,
       createTreatmentPlan, approveTreatmentPlan, rejectTreatmentPlan, administerMedication, finalizeTreatmentOutcome, fulfillPurchaseRequest, getDailyMedicalTasks,
-      addAccount, updateAccount, recordJournalEntry, deleteJournalEntry, addSystemLog
+      addAccount, updateAccount, recordJournalEntry, deleteJournalEntry, addSystemLog,
+      createBackup, restoreBackup
     }}>
       {children}
     </AppContext.Provider>

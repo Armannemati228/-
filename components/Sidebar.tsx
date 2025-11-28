@@ -1,5 +1,5 @@
 
-import React from 'react';
+import * as React from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { LayoutDashboard, Dog, Users, Wallet, Settings, Activity, LogOut, Package, History } from 'lucide-react';
 import { useApp } from '../context/AppContext';

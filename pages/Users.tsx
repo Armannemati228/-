@@ -1,5 +1,6 @@
 
-import React, { useState } from 'react';
+import * as React from 'react';
+import { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { User, UserRole, TransactionType, UserPermissions } from '../types';
 import { Mail, Phone, Plus, Edit2, X, Check, Wallet, Shield, Save, UserPlus, Briefcase, Percent, Target } from 'lucide-react';

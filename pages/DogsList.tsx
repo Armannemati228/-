@@ -1,5 +1,6 @@
 
-import React, { useState, useRef, useEffect } from 'react';
+import * as React from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { Dog, DogStatus, DailyLog, InvoiceStatus, UserRole, LogEntry, PaymentMethod } from '../types';
 import { Plus, X, Camera, Upload, LogIn, Activity, Home, LogOut, FileText, ClipboardList, Bell, CheckCircle, Utensils, Stethoscope, Trash2, Package, TrendingUp, Save, Printer, AlertTriangle, Image as ImageIcon, Bone, Truck, DollarSign, FileInput, FileDigit, Edit2, RefreshCw, QrCode, CreditCard, FileBadge } from 'lucide-react';

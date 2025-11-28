@@ -1,5 +1,6 @@
 
-import React, { useState } from 'react';
+import * as React from 'react';
+import { useState } from 'react';
 import { MessageCircle, X, Send } from 'lucide-react';
 
 export const AIChat: React.FC = () => {

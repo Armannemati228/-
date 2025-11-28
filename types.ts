@@ -460,3 +460,42 @@ export interface Payslip {
   netPayable: number;
   paymentDate: string;
 }
+
+// Backup Type Definition
+export interface SystemBackup {
+  metadata: {
+    timestamp: string;
+    version: string;
+    exportedBy: string;
+  };
+  data: {
+    users: User[];
+    dogs: Dog[];
+    services: Service[];
+    invoices: Invoice[];
+    expenses: Expense[];
+    transactions: WalletTransaction[];
+    rooms: Room[];
+    tickets: Ticket[];
+    reminders: Reminder[];
+    managerTasks: ManagerTask[];
+    dailyChecklists: DailyChecklist[];
+    emergencyReports: EmergencyReport[];
+    systemLogs: SystemLog[];
+    inventory: InventoryItem[];
+    inventoryTransactions: InventoryTransaction[];
+    activeTreatments: TreatmentPlan[];
+    purchaseRequests: PurchaseRequest[];
+    accounts: Account[];
+    journalEntries: JournalEntry[];
+    checks: Check[];
+    payslips: Payslip[];
+    settings: {
+      gateway: PaymentGatewaySettings;
+      sms: SMSConfig;
+      host: HostConfig;
+      ai: AIConfig;
+      productionTolerance: number;
+    }
+  }
+}

@@ -1,5 +1,5 @@
 
-import React from 'react';
+import * as React from 'react';
 import { Moon, Sun, Menu, Bell, Search, LogOut } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 
