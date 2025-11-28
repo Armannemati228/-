@@ -2,7 +2,7 @@
 import React, { useState, useMemo } from 'react';
 import { useApp } from '../context/AppContext';
 import { UserRole } from '../types';
-import { History as HistoryIcon, Filter, Printer, Search, User, ClipboardList, ChevronLeft, ChevronRight } from 'lucide-react';
+import { History as HistoryIcon, Filter, Printer, Search, User, ChevronLeft, ChevronRight } from 'lucide-react';
 
 export const History: React.FC = () => {
   const { systemLogs, dailyChecklists, users, currentUser } = useApp();

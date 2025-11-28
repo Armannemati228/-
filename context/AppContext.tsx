@@ -132,6 +132,7 @@ interface AppContextType {
   
   createBackup: () => void;
   restoreBackup: (file: File) => Promise<void>;
+  exportSiteBundle: () => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -459,6 +460,34 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     } catch (error) { console.error(error); alert('خطا در بازگردانی فایل. لطفا از معتبر بودن فایل اطمینان حاصل کنید.'); }
   };
 
+  const exportSiteBundle = () => {
+      const bundleContent = `
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <title>Mr. Rottweiler - Static Export</title>
+  <style>body { font-family: system-ui; padding: 2rem; direction: rtl; }</style>
+</head>
+<body>
+  <h1>خروجی سایت Mr. Rottweiler</h1>
+  <p>این فایل نمایانگر نسخه ایستا از سایت است که توسط مدیر دانلود شده است.</p>
+  <p>تاریخ خروجی: ${new Date().toLocaleString('fa-IR')}</p>
+  <hr>
+  <h2>آمار کلی سیستم در لحظه خروجی:</h2>
+  <ul>
+    <li>تعداد کاربران: ${users.length}</li>
+    <li>تعداد سگ‌ها: ${dogs.length}</li>
+    <li>تعداد فاکتورها: ${invoices.length}</li>
+  </ul>
+</body>
+</html>`;
+      const blob = new Blob([bundleContent], { type: 'text/html' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a'); a.href = url; a.download = 'mr-rottweiler-bundle.html'; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
+      addSystemLog('System', 'SITE_EXPORT', 'خروجی فایل سایت (Bundle) توسط مدیر کل');
+  };
+
   return (
     <AppContext.Provider value={{
       users, dogs, services, invoices, expenses, transactions, rooms, financials, darkMode, currentUser,
@@ -482,7 +511,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       addInventoryItem, updateInventoryItem, updateStock, produceFoodBatch, setProductionTolerance, checkMissedMeals,
       createTreatmentPlan, approveTreatmentPlan, rejectTreatmentPlan, administerMedication, finalizeTreatmentOutcome, fulfillPurchaseRequest, getDailyMedicalTasks,
       addAccount, updateAccount, recordJournalEntry, deleteJournalEntry, addSystemLog,
-      createBackup, restoreBackup
+      createBackup, restoreBackup, exportSiteBundle
     }}>
       {children}
     </AppContext.Provider>
